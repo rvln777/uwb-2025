@@ -150,5 +150,11 @@ print("Predicted Sentiments for new reviews:", new_predictions)
 
 ---
 
-### **Step 10: Wrap Up**
+### **Step 10: Create application**
+Input: comment
+Output: positive, negative
+
+---
+
+### **Step 11: Wrap Up**
 You have successfully built and evaluated a logistic regression classifier to predict restaurant review sentiment. Use interpretability tools or advanced text preprocessing techniques—such as TF-IDF or word embeddings—for better performance if the dataset is large or complex.
