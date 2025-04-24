@@ -1,5 +1,5 @@
 # Zadanie: 
-    - Predict digit on image using loaded_model and log number predicted.
+Predict digit on image using loaded_model and log number predicted.
 ```
 > python digit_classifier.py test_digit.jpg
 > The predicted digit is: 5
