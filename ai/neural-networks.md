@@ -1,3 +1,9 @@
+# Zadanie: 
+    - Predict digit on image using loaded_model and log number predicted.
+```
+> python digit_classifier.py test_digit.jpg
+> The predicted digit is: 5
+```
 ```python
 # New libriaries
 import tensorflow as tf
@@ -63,12 +69,5 @@ print("Model loaded successfully.")
 
     # Reshape the image array to add a batch dimension (1, 28, 28, 1)
     image_array = np.expand_dims(image_array, axis=0)
-
-
-# Predict digit on image using loaded_model and log number predicted.
-
-# Example of usage:    
-    # > python digit_classifier.py test_digit.jpg
-    # > The predicted digit is: 5
 
 ```
