@@ -1,4 +1,3 @@
-### **Step 1: Train and save the model**
 ```python
 import tensorflow as tf
 from tensorflow.keras import Sequential
