@@ -139,5 +139,3 @@
 
 ### **Step 7: Extend the System (Optional)**
 1. Replace VGG16 with other pre-trained models like ResNet, EfficientNet, or MobileNet for better performance.
-2. Use a dimensionality reduction technique (e.g., PCA or t-SNE) for reducing feature dimensionality.
-3. Consider implementing approximate nearest neighbor (ANN) algorithms (e.g., FAISS) for faster similarity search in large datasets.
