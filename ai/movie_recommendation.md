@@ -3,117 +3,119 @@
 # Task
 Create an applicaation which takes movie title as input and returns list of movies similar to it.
 
-### **Step 1: Install Required Libraries**
-1. Install the necessary Python libraries:
-
-   ```bash
-   pip install numpy pandas surprise scikit-learn
-   ```
+Here’s a step-by-step guide to implement a movie recommendation system using collaborative filtering on the MovieLens dataset. Collaborative filtering relies on user-item interaction (e.g., user ratings) to make recommendations by identifying patterns in user behavior.
 
 ---
 
-### **Step 2: Import Required Libraries**
-1. Start your script by importing the required libraries:
+### **Step 1: Set Up Your Environment**
+1. **Install Dependencies**:
+   You’ll need Python and libraries such as pandas, NumPy, scikit-learn, and optionally TensorFlow or PyTorch. Install using pip:
+   ```bash
+   pip install pandas numpy scikit-learn
+   ```
 
+2. **Download the MovieLens Dataset**:
+   Visit [MovieLens Dataset](https://grouplens.org/datasets/movielens/) and download a suitable size dataset (e.g., ml-latest-small or ml-1m). Extract the dataset.
+
+---
+
+### **Step 2: Understand the Dataset**
+1. The dataset typically includes:
+   - **`movies.csv`**: Movie IDs, titles, and genres.
+   - **`ratings.csv`**: User IDs, movie IDs, ratings, and timestamps.
+   - **`links.csv`** (optional): Links to external movie information (e.g., IMDB).
+   
+2. Load the data using pandas:
    ```python
    import pandas as pd
-   import numpy as np
-   from surprise import SVD
-   from surprise import Dataset
-   from surprise import Reader
-   from sklearn.metrics.pairwise import cosine_similarity
-   from sklearn.feature_extraction.text import CountVectorizer
-   from collections import defaultdict
-   ```
-
----
-
-### **Step 3: Download and Load MovieLens Dataset**
-1. Download the MovieLens dataset from [MovieLens website](https://grouplens.org/datasets/movielens/) or use the `MovieLens 100k` dataset.
-
-2. Read the dataset using `pandas`:
-
-   ```python
-   # Load movies data
-   movies = pd.read_csv('movies.csv')  # File will include movieId, title, genres columns
-
-   # Load ratings data
-   ratings = pd.read_csv('ratings.csv')  # File will include userId, movieId, rating columns
-
-   # Explore the data:
+   
+   movies = pd.read_csv('movies.csv')
+   ratings = pd.read_csv('ratings.csv')
    print(movies.head())
    print(ratings.head())
    ```
 
 ---
 
-### **Step 4: Data Preprocessing**
-1. Since the MovieLens dataset may contain genres, ensure the genres column is normalized if necessary.
-2. For simplicity, we'll focus on collaborative filtering (user-item matrix), so ensure the dataset has the required columns: `userId`, `movieId`, and `rating`.
+### **Step 3: Preprocess the Data**
+1. **Drop irrelevant columns**:
+   Remove unnecessary columns (e.g., genres, timestamps) from the dataset.
 
+2. **Handle missing values**:
+   Check if there are any missing values in the dataset and handle them:
    ```python
-   # Check for missing values and drop them if any
    print(ratings.isnull().sum())
-   ratings = ratings.dropna()
+   ratings.dropna(inplace=True)
+   ```
 
-   # Verify the data structure
-   print(ratings.head())
+3. Create a user-item matrix:
+   Pivot the ratings data to create a matrix where rows are users and columns are movie IDs:
+   ```python
+   user_movie_matrix = ratings.pivot(index='userId', columns='movieId', values='rating')
    ```
 
 ---
 
-### **Step 5: Create a User-Item Rating Matrix**
-1. The `surprise` library handles user-item matrices internally, but let's construct a rating matrix for an easier explanation:
+### **Step 4: Implement Collaborative Filtering**
+Collaborative filtering approaches can be:
+   - **User-Based**: Recommends movies based on similar users.
+   - **Item-Based**: Recommends movies similar to the one the user interacted with.
 
+For this example, we’ll use item-based collaborative filtering.
+
+#### **Approach: Cosine Similarity**
+1. Compute the similarity between movies based on their ratings:
    ```python
-   # Create user-item matrix
-   user_item_matrix = ratings.pivot(index='userId', columns='movieId', values='rating')
-   print(user_item_matrix.head())
+   from sklearn.metrics.pairwise import cosine_similarity
+   import numpy as np
+   
+   # Fill missing values with 0
+   user_movie_matrix_filled = user_movie_matrix.fillna(0)
+   movie_similarity = cosine_similarity(user_movie_matrix_filled.T)  # Transpose to compare movies
+   
+   # Create a DataFrame for easier handling
+   movie_similarity_df = pd.DataFrame(movie_similarity, 
+                                       index=user_movie_matrix.columns, 
+                                       columns=user_movie_matrix.columns)
+   ```
+
+2. Verify the similarity matrix:
+   ```python
+   print(movie_similarity_df.head())
    ```
 
 ---
 
-### **Step 6: Build Collaborative Filtering Model**
-1. Use the surprise library's `SVD` (Singular Value Decomposition) algorithm to build the collaborative filter.
+### **Step 5: Create a Recommendation Function**
+Given a movie title, find similar movies based on the computed similarity matrix.
 
+1. Map movie IDs to titles:
    ```python
-   # Prepare the data for the surprise library
-   reader = Reader(rating_scale=(0.5, 5.0))
-   data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
-
-   # Build the training set
-   trainset = data.build_full_trainset()
-
-   # Train the SVD model
-   model = SVD()
-   model.fit(trainset)
+   movie_id_to_title = dict(zip(movies['movieId'], movies['title']))
+   movie_title_to_id = dict(zip(movies['title'], movies['movieId']))
    ```
 
----
-
-### **Step 7: Create a Movie Similarity Function**
-1. To recommend movies similar to a given title, we need to calculate cosine similarity between movies based on collaborative filtering results.
-
+2. Create the function:
    ```python
-   # Create a function to estimate all user ratings for a specific movie
-   def get_movie_predictions(model, title, movies, ratings, n_recommendations=10):
-       # Find the movieId for the given title
-       movie = movies[movies['title'].str.contains(title, case=False)].iloc[0]
-       movie_id = movie['movieId']
-
-       # Get the predictions for all users for this movie
-       predictions = defaultdict(float)
-       for user_id in ratings['userId'].unique():
-           predictions[user_id] = model.predict(user_id, movie_id).est
-
-       # Get movies sorted by predicted rating
-       sorted_movies = sorted(predictions.items(), key=lambda x: x[1], reverse=True)[:n_recommendations]
-       result = movies[movies['movieId'].isin([x[0] for x in sorted_movies])]
+   def recommend_movies(movie_title, similarity_df, movie_title_to_id, movie_id_to_title, n=10):
+       if movie_title not in movie_title_to_id:
+           print("Movie not found!")
+           return []
        
-       return result[['title', 'movieId']]
+       movie_id = movie_title_to_id[movie_title]
+       similar_movie_ids = similarity_df[movie_id].sort_values(ascending=False).head(n+1).index.tolist()
+       
+       # Exclude the target movie itself from recommendations
+       recommendations = [movie_id_to_title[m_id] for m_id in similar_movie_ids if m_id != movie_id]
+       return recommendations
+   ```
 
-   # Example usage
-   recommendations = get_movie_predictions(model, "Toy Story", movies, ratings, n_recommendations=10)
+3. Test the function:
+   ```python
+   movie_title = "Toy Story (1995)"  # Replace with a movie title from your dataset
+   recommendations = recommend_movies(movie_title, movie_similarity_df, movie_title_to_id, movie_id_to_title, n=5)
+   print(f"Movies similar to '{movie_title}':")
    print(recommendations)
    ```
+
 ---
