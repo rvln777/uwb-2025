@@ -1,165 +1,119 @@
-### **Collaborative Filtering Movie Recommendation System**
+# Movie recommendation system
 
----
+# Task
+Create an applicaation which takes movie title as input and returns list of movies similar to it.
 
 ### **Step 1: Install Required Libraries**
-To start, ensure you have Python installed with necessary libraries:
+1. Install the necessary Python libraries:
 
-```bash
-pip install numpy pandas matplotlib scikit-learn
-```
-
----
-
-### **Step 2: Download the MovieLens Dataset**
-The MovieLens dataset provides movie ratings by users.
-
-1. Download the dataset from [MovieLens website](https://grouplens.org/datasets/movielens/).
-2. Choose the size of the dataset (e.g., `ml-latest-small.zip`).
-3. Extract the zip file to your working directory.
+   ```bash
+   pip install numpy pandas surprise scikit-learn
+   ```
 
 ---
 
-### **Step 3: Load and Explore the Dataset**
-Let’s load the data and perform an initial check:
+### **Step 2: Import Required Libraries**
+1. Start your script by importing the required libraries:
 
-```python
-import pandas as pd
-
-# Load ratings.csv
-ratings = pd.read_csv('ml-latest-small/ratings.csv')
-
-# Load movies.csv
-movies = pd.read_csv('ml-latest-small/movies.csv')
-
-# Display sample data
-print(ratings.head())
-print(movies.head())
-```
-
-Verify the structure of ratings and movies data:
-- **Ratings**: userId, movieId, rating, timestamp
-- **Movies**: movieId, title, genres
+   ```python
+   import pandas as pd
+   import numpy as np
+   from surprise import SVD
+   from surprise import Dataset
+   from surprise import Reader
+   from sklearn.metrics.pairwise import cosine_similarity
+   from sklearn.feature_extraction.text import CountVectorizer
+   from collections import defaultdict
+   ```
 
 ---
 
-### **Step 4: Preprocess the Data**
-Clean and reshape the data for collaborative filtering.
+### **Step 3: Download and Load MovieLens Dataset**
+1. Download the MovieLens dataset from [MovieLens website](https://grouplens.org/datasets/movielens/) or use the `MovieLens 100k` dataset.
 
-```python
-# Drop unnecessary columns
-ratings = ratings.drop('timestamp', axis=1)
+2. Read the dataset using `pandas`:
 
-# Merge ratings and movies on movieId for better exploration
-movie_data = pd.merge(ratings, movies, on='movieId')
+   ```python
+   # Load movies data
+   movies = pd.read_csv('movies.csv')  # File will include movieId, title, genres columns
 
-print(movie_data.head())
-```
+   # Load ratings data
+   ratings = pd.read_csv('ratings.csv')  # File will include userId, movieId, rating columns
 
----
-
-### **Step 5: Collaborative Filtering Overview**
-Collaborative filtering relies on interactions (ratings) between users and items (movies). Two main techniques:
-1. **User-based Collaborative Filtering**: Recommends movies based on similar users.
-2. **Item-based Collaborative Filtering**: Recommends movies based on similar items.
-
-In this example, we’ll use Matrix Factorization (e.g., Singular Value Decomposition, or SVD) to implement collaborative filtering.
+   # Explore the data:
+   print(movies.head())
+   print(ratings.head())
+   ```
 
 ---
 
-### **Step 6: Create a User-Item Interaction Matrix**
-Prepare a matrix where rows represent users and columns represent movies.
+### **Step 4: Data Preprocessing**
+1. Since the MovieLens dataset may contain genres, ensure the genres column is normalized if necessary.
+2. For simplicity, we'll focus on collaborative filtering (user-item matrix), so ensure the dataset has the required columns: `userId`, `movieId`, and `rating`.
 
-```python
-# Create a pivot table with users as rows and movies as columns
-user_movie_matrix = ratings.pivot(index='userId', columns='movieId', values='rating')
+   ```python
+   # Check for missing values and drop them if any
+   print(ratings.isnull().sum())
+   ratings = ratings.dropna()
 
-# Fill NA values with 0 since ratings are sparse
-user_movie_matrix = user_movie_matrix.fillna(0)
-
-print(user_movie_matrix.head())
-```
-
----
-
-### **Step 7: Implement Collaborative Filtering with SVD**
-Singular Value Decomposition (SVD) is used to decompose the matrix into latent factors.
-
-```python
-from sklearn.decomposition import TruncatedSVD
-import numpy as np
-
-# Initialize SVD
-svd = TruncatedSVD(n_components=50)  # Reduce dimensions
-latent_matrix = svd.fit_transform(user_movie_matrix)
-
-# Compute explained variance ratio
-print("Explained variance ratio:", svd.explained_variance_ratio_.sum())
-```
+   # Verify the data structure
+   print(ratings.head())
+   ```
 
 ---
 
-### **Step 8: Predict Ratings**
-Reconstruct the interaction matrix from latent factors to predict user ratings.
+### **Step 5: Create a User-Item Rating Matrix**
+1. The `surprise` library handles user-item matrices internally, but let's construct a rating matrix for an easier explanation:
 
-```python
-# Get reconstructed predictions by multiplying latent matrices
-predicted_ratings = np.dot(latent_matrix, svd.components_)
-
-# Convert predictions back to a Pandas DataFrame for better compatibility
-predicted_ratings_df = pd.DataFrame(predicted_ratings, index=user_movie_matrix.index, columns=user_movie_matrix.columns)
-print(predicted_ratings_df.head())
-```
+   ```python
+   # Create user-item matrix
+   user_item_matrix = ratings.pivot(index='userId', columns='movieId', values='rating')
+   print(user_item_matrix.head())
+   ```
 
 ---
 
-### **Step 9: Recommend Movies**
-Recommend top movies for a specific user.
+### **Step 6: Build Collaborative Filtering Model**
+1. Use the surprise library's `SVD` (Singular Value Decomposition) algorithm to build the collaborative filter.
 
-```python
-def recommend_movies(user_id, original_matrix, predicted_matrix, movies, num_recommendations=5):
-    # Find user row
-    user_ratings = original_matrix.loc[user_id]
-    
-    # Find user's predicted ratings
-    user_predictions = predicted_matrix.loc[user_id]
-    
-    # Filter out movies that the user has already rated
-    unrated_movies = user_ratings[user_ratings == 0].index
-    predicted_unrated = user_predictions[unrated_movies]
-    
-    # Recommend movies with the highest predicted ratings
-    top_movies = predicted_unrated.sort_values(ascending=False).head(num_recommendations)
-    
-    # Convert movie ids to movie titles
-    recommended_titles = movies[movies['movieId'].isin(top_movies.index)]['title']
-    return recommended_titles
+   ```python
+   # Prepare the data for the surprise library
+   reader = Reader(rating_scale=(0.5, 5.0))
+   data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
 
-# Recommend movies for user 1
-recommendations = recommend_movies(1, user_movie_matrix, predicted_ratings_df, movies)
-print("Recommended Movies for User 1:")
-print(recommendations)
-```
+   # Build the training set
+   trainset = data.build_full_trainset()
+
+   # Train the SVD model
+   model = SVD()
+   model.fit(trainset)
+   ```
 
 ---
 
-### **Step 10: Evaluate the Recommendation System**
-Evaluate the performance using techniques like Root Mean Square Error (RMSE).
+### **Step 7: Create a Movie Similarity Function**
+1. To recommend movies similar to a given title, we need to calculate cosine similarity between movies based on collaborative filtering results.
 
-```python
-from sklearn.metrics import mean_squared_error
-from math import sqrt
+   ```python
+   # Create a function to estimate all user ratings for a specific movie
+   def get_movie_predictions(model, title, movies, ratings, n_recommendations=10):
+       # Find the movieId for the given title
+       movie = movies[movies['title'].str.contains(title, case=False)].iloc[0]
+       movie_id = movie['movieId']
 
-# Flatten matrices for comparison
-actual = user_movie_matrix.values.flatten()
-predicted = predicted_ratings.flatten()
+       # Get the predictions for all users for this movie
+       predictions = defaultdict(float)
+       for user_id in ratings['userId'].unique():
+           predictions[user_id] = model.predict(user_id, movie_id).est
 
-# Filter out unrated (zero) values
-mask = actual != 0
-actual = actual[mask]
-predicted = predicted[mask]
+       # Get movies sorted by predicted rating
+       sorted_movies = sorted(predictions.items(), key=lambda x: x[1], reverse=True)[:n_recommendations]
+       result = movies[movies['movieId'].isin([x[0] for x in sorted_movies])]
+       
+       return result[['title', 'movieId']]
 
-# Calculate RMSE
-rmse = sqrt(mean_squared_error(actual, predicted))
-print(f"RMSE: {rmse}")
-```
+   # Example usage
+   recommendations = get_movie_predictions(model, "Toy Story", movies, ratings, n_recommendations=10)
+   print(recommendations)
+   ```
+---
